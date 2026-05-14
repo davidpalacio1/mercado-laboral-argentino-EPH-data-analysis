@@ -120,7 +120,7 @@ Normalización con `StandardScaler` + reducción dimensional con PCA (2 componen
 
 ---
 
-## 🔍 Conclusiones para un decisor
+## 🔍 Conclusiones
 
 **¿Qué aprendemos sobre el mercado laboral argentino en T3-2025?**
 
