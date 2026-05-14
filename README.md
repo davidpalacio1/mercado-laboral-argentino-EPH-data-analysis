@@ -1,6 +1,6 @@
 # 📊 Análisis del Mercado Laboral Argentino — EPH T3-2025
 
-**Portfolio de Data Science · Ciencias de Datos, UBA**  
+**Ciencias de Datos, UBA**  
 Universidad de Buenos Aires · Facultad de Ciencias Exactas y Naturales (FCEyN)
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/davidpalacio1/mercado-laboral-argentino-EPH-data-analysis/blob/main/Mercado_laboral_argentino_EPH_data_analysis.ipynb)
@@ -11,7 +11,10 @@ Universidad de Buenos Aires · Facultad de Ciencias Exactas y Naturales (FCEyN)
 
 Análisis completo de la **Encuesta Permanente de Hogares (EPH)** del tercer trimestre de 2025, relevada por el INDEC. La EPH es la principal fuente de información sobre el mercado laboral argentino: registra datos socioeconómicos de **44.946 individuos** en los principales aglomerados urbanos del país.
 
-El proyecto aplica técnicas de machine learning no supervisado y supervisado para responder preguntas concretas sobre la estructura del empleo en Argentina: ¿qué perfiles laborales existen en la población?, ¿se puede predecir si una persona trabaja en el sector formal, informal o en servicio doméstico?, ¿qué factores determinan el ingreso?
+El proyecto aplica técnicas de machine learning no supervisado y supervisado para responder preguntas concretas sobre la estructura del empleo en Argentina:
+- ¿Qué perfiles laborales existen en la población activa?
+- ¿Se puede predecir si una persona trabaja en el sector formal, informal o en servicio doméstico?
+- ¿Qué factores determinan el ingreso — y cuánto explican?
 
 Este proyecto forma parte del portfolio de Data Science de **David Palacio Velásquez**, estudiante de Ciencias de Datos y Ciencias Matemáticas en la UBA.
 
@@ -34,60 +37,100 @@ mercado-laboral-argentino-EPH-data-analysis/
 ## 📊 Contenido del análisis
 
 ### 1. Limpieza y preprocesamiento
-- Filtrado de entrevistas completas: de 44.946 a **39.999 registros** (`H15 = 1`)
+
+- Filtrado de entrevistas completas: de 44.946 → **37.312 registros limpios** (`H15 = 1`, sin NS/NR en `PP04C`)
 - Selección de 45 variables relevantes sobre condición laboral, educación e ingresos
-- Imputación de NaN con criterio semántico: ausencias en variables laborales para no-ocupados representan cero actividad
-- Tratamiento justificado de `SECTOR` (49.8% de NaN estructurales — no se eliminan para evitar sesgo)
-- Codificación dummy con `drop_first=True` → 113 variables finales
-- Recodificaciones: estado civil → `SOLTERO` (45.3%), alfabetismo → `LEE` (99.0%), nivel educativo (escala 0–6)
-- Eliminación de registros NS/NR en `PP04C`: **37.312 individuos en `df_clean`**
-
-### 2. Clustering — Perfiles socioeconómicos (no supervisado)
-- Normalización con `StandardScaler` y reducción dimensional con PCA (2 componentes: **21.4% de varianza explicada**)
-- Justificación de K-Means sobre DBSCAN: maldición de la dimensionalidad con n=37.312 y p=116
-- Selección de **K=4** por método del codo: la reducción marginal de inercia cae −58% al pasar de K=4 a K=5
-- **4 perfiles identificados:**
-
-| Cluster | n | % | Perfil | Ingreso prom. | Hs./semana |
-|---|---|---|---|---|---|
-| 0 | 18.704 | 50.1% | No ocupados con ingresos no laborales | $250.562 | 0 |
-| 1 | 14.240 | 38.2% | Trabajadores activos (pleno empleo) | $933.985 | 38.5 |
-| 2 | 3.141 | 8.4% | Jornada reducida / subocupados | $490.782 | 28.1 |
-| 3 | 1.227 | 3.3% | Inactivos jóvenes sin ingresos propios | $148.520 | 0 |
-
-### 3. Clasificación — Sector de empleo (supervisado)
-- Variable objetivo: Formal (64.8%) / Informal (26.8%) / Servicio doméstico (8.4%)
-- Transformación `log(P47T)`: asimetría de 10.25 → −0.53
-- División estratificada 80/20 con `stratify=y` para preservar proporciones de clase
-- K-Nearest Neighbors con **K óptimo = 17**, seleccionado por Cross-Validation 5-fold (accuracy CV = 0.9070)
-- **Accuracy en test: 91.1%** (vs. 64.8% del clasificador trivial)
-- Hallazgo clave: el **servicio doméstico** es la clase más fácil de clasificar (F1 = 0.98, precision = 1.00); el **sector informal** es el más difícil (recall = 0.78) porque comparte características observables con el formal
-- Experimento de ablación: eliminar `log(P47T)`, edad y `EMPLEO` → caída de 4.9 puntos de accuracy (−5.4% relativo)
-
-### 4. Regresión — Predicción de ingreso (supervisado)
-- Variable objetivo: `log(P47T)` sobre **13.856 personas ocupadas** con ingreso positivo
-- Ingreso mediano real T3-2025: **$800.000** | promedio: $1.055.249
-- Tres modelos comparados en test:
-
-| Modelo | R² test | RMSE test |
-|---|---|---|
-| Ridge (α = 500) ✓ | 0.5073 | 0.5901 |
-| OLS (todas las variables) | 0.5073 | 0.5901 |
-| OLS (3 variables: edad, educación, sector) | 0.2023 | 0.7508 |
-
-- Ridge ≈ OLS: resultado metodológicamente esperado con ~97 observaciones por parámetro y baja multicolinealidad
-- RMSE = 0.59 → factor de **1.80x en pesos** (sobre $800.000: error típico de ±$440K / ±$244K)
-- Efectos estimados (por unidad adicional): nivel educativo → **+15.6%** de ingreso | edad → **+11.3%** | jerarquía → **+3.0%**
-- Interpretación consistente con la teoría del capital humano (Becker, 1964) y el perfil ingreso-experiencia de Mincer (1974)
+- Imputación semántica de NaN: ausencias en variables laborales para no-ocupados representan cero actividad, **no datos faltantes**
+- Tratamiento justificado de `SECTOR` (49.8% de NaN estructurales — eliminación sesgaía la muestra hacia ocupados, por lo que se conservan)
+- Codificación dummy con `drop_first=True` → **113 variables finales**
+- Recodificaciones: estado civil → `SOLTERO` (45.3%), alfabetismo → `LEE` (99.0%), nivel educativo en escala ordinal 0–6
 
 ---
 
-## 🔍 Hallazgos principales
+### 2. Clustering — Perfiles socioeconómicos (no supervisado)
 
-- La principal dimensión de variación en el mercado laboral argentino es la **condición de actividad**: ocupados plenos vs. no ocupados. El clustering la captura como la separación más relevante.
-- El modelo KNN clasifica el sector de empleo con **91.1% de accuracy**. Los errores se concentran en la frontera formal-informal, que comparten muchas características observables en la EPH.
-- El **nivel educativo** es el predictor de ingreso más potente: cada escalón adicional se asocia con +15.6% de ingreso, consistente con décadas de literatura en economía laboral.
-- La **regularización Ridge no mejora sobre OLS** en este dataset — un resultado que se explica y justifica metodológicamente en el análisis.
+Normalización con `StandardScaler` + reducción dimensional con PCA (2 componentes: **21.4% de varianza explicada**) + **K=4** seleccionado por método del codo (caída de inercia marginal: −58% al pasar de K=4 a K=5).
+
+**Justificación K-Means sobre DBSCAN:** con n=37.312 y p=116 variables, DBSCAN sufre la maldición de la dimensionalidad — las distancias euclidianas se vuelven uniformes y los clusters pierden separación. K-Means con PCA previo evita este problema.
+
+**Los 4 perfiles del mercado laboral argentino:**
+
+| Cluster | n | % | Perfil | Ingreso mensual promedio | Hs./semana |
+|---|---|---|---|---|---|
+| 0 | 18.704 | 50.1% | No ocupados con ingresos no laborales (jubilados, rentistas) | $250.562 | 0 |
+| 1 | 14.240 | 38.2% | Trabajadores activos en pleno empleo | $933.985 | 38.5 |
+| 2 | 3.141 | 8.4% | Jornada reducida / subocupados | $490.782 | 28.1 |
+| 3 | 1.227 | 3.3% | Inactivos jóvenes sin ingresos propios | $148.520 | 0 |
+
+> El ingreso del Cluster 1 casi **cuadruplica** al del Cluster 3. La principal dimensión de variación en el mercado laboral argentino no es el sector ni el nivel educativo — es la **condición de actividad** misma.
+
+---
+
+### 3. Clasificación — Sector de empleo (supervisado)
+
+**Variable objetivo:** Formal (64.8%) / Informal (26.8%) / Servicio doméstico (8.4%)
+
+**Preprocesamiento:** transformación `log(P47T)` — asimetría reducida de 10.25 → −0.53. División estratificada 80/20.
+
+**Modelo:** K-Nearest Neighbors con **K óptimo = 17**, seleccionado por Cross-Validation 5-fold.
+
+| Métrica | Valor |
+|---|---|
+| Accuracy en test | **91.1%** |
+| Baseline trivial (siempre "Formal") | 64.8% |
+| Accuracy CV (validación) | 90.7% |
+
+**Resultados por clase:**
+
+| Sector | Precision | Recall | F1 |
+|---|---|---|---|
+| Formal | 0.91 | 0.96 | 0.93 |
+| Informal | 0.89 | 0.78 | 0.83 |
+| Servicio doméstico | **1.00** | **0.96** | **0.98** |
+
+**Hallazgo clave:** el servicio doméstico es la clase más fácil de clasificar (F1 = 0.98) porque tiene características observables muy distintas. El sector **informal es el más difícil** (recall = 0.78): comparte nivel educativo, edad y tipo de tarea con el formal — la diferencia está en variables que la EPH no captura directamente, como el registro en AFIP.
+
+**Experimento de ablación:** eliminar `log(P47T)`, edad y `EMPLEO` → caída de **4.9 puntos de accuracy** (−5.4% relativo). Confirma que el ingreso declarado es la variable con mayor poder predictivo individual.
+
+---
+
+### 4. Regresión — Predicción de ingreso (supervisado)
+
+**Variable objetivo:** `log(P47T)` sobre **13.856 personas ocupadas** con ingreso positivo.
+
+- Ingreso mediano real T3-2025: **$800.000** | promedio: $1.055.249
+
+**Comparación de modelos en test:**
+
+| Modelo | R² test | RMSE (log) | Error típico en pesos |
+|---|---|---|---|
+| Ridge (α = 500) ✓ | **0.5073** | 0.5901 | ±$440K sobre la mediana |
+| OLS (todas las variables) | 0.5073 | 0.5901 | ±$440K |
+| OLS (3 vars: edad, educación, sector) | 0.2023 | 0.7508 | ±$600K |
+
+**Ridge ≈ OLS:** resultado metodológicamente esperado con ~97 observaciones por parámetro y baja multicolinealidad. No hay ganancia por regularización cuando el sistema no está sobredeterminado.
+
+**Efectos estimados (por unidad adicional):**
+- Nivel educativo: **+15.6%** de ingreso por escalón (escala 0–6)
+- Edad: **+11.3%** por cada 10 años adicionales
+- Jerarquía ocupacional: **+3.0%** por nivel
+- R² = 0.50 → educación, edad y sector explican la mitad de la varianza del ingreso; la otra mitad corresponde a factores no observados (redes, suerte, negociación salarial)
+
+> Resultados consistentes con la teoría del capital humano (Becker, 1964) y el perfil ingreso-experiencia de Mincer (1974).
+
+---
+
+## 🔍 Conclusiones para un decisor
+
+**¿Qué aprendemos sobre el mercado laboral argentino en T3-2025?**
+
+1. **La mitad de la población relevada (50.1%) no trabaja**, pero recibe ingresos no laborales — mayormente jubilaciones. Esto refleja el peso del sistema previsional como sostén de ingresos en la economía argentina, y explica por qué la condición de actividad emerge como la dimensión de variación más importante.
+
+2. **El acceso al empleo formal casi cuadruplica el ingreso** respecto a los inactivos jóvenes ($933K vs $148K). La formalidad laboral no es solo una categoría administrativa — es el principal determinante del bienestar económico individual.
+
+3. **El nivel educativo es el predictor de ingreso más potente (+15.6% por escalón)**, pero solo explica junto a edad y sector la mitad de la varianza. El 50% restante no está en los datos de la EPH, lo que plantea preguntas importantes sobre movilidad social y desigualdad estructural.
+
+4. **El sector informal es el más difícil de identificar** (recall = 0.78), lo que refleja una realidad del mercado laboral: la informalidad no tiene un perfil único — convive con el formal en las mismas ocupaciones, edades y niveles educativos.
 
 ---
 
@@ -127,9 +170,10 @@ mercado-laboral-argentino-EPH-data-analysis/
 ## 🚀 Cómo ejecutar
 
 ### Opción 1 — Google Colab (sin instalación)
-Clic en el badge al principio de este README.
+Clic en el badge al comienzo de este README.
 
 ### Opción 2 — Local
+
 ```bash
 git clone https://github.com/davidpalacio1/mercado-laboral-argentino-EPH-data-analysis.git
 cd mercado-laboral-argentino-EPH-data-analysis
